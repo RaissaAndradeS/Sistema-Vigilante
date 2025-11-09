@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY_AQUI",
+  apiKey: "AIzaSyCjukYZ483MuTh77jRsO-PmzCRw_RNebYM",
   authDomain: "sistema-vigilantes.firebaseapp.com",
   projectId: "sistema-vigilantes",
   storageBucket: "sistema-vigilantes.firebasestorage.app",
