@@ -62,11 +62,11 @@ function getVagasDisponiveis(dataStr, nomePosto) {
 }
 
 function validarEscala(dataStr) {
-    if (config.datasManual.length > 0) {
+    if (config.datasManual && config.datasManual.length > 0) {
         if (!config.datasManual.find(d => d === dataStr)) return { valido: false, mensagem: 'Data não está na escala manual!' };
         return { valido: true, mensagem: '' };
     }
-    if (!config.escalaConfig.tipo) return { valido: false, mensagem: 'Escala não configurada!' };
+    if (!config.escalaConfig || !config.escalaConfig.tipo) return { valido: false, mensagem: 'Escala não configurada!' };
     const data = new Date(dataStr + 'T00:00:00');
     const dia = data.getDate();
     const mes = data.getMonth() + 1;
