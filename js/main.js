@@ -245,12 +245,8 @@ function cadastrarPlantao() {
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
 
-    const timestamp = Date.now();
-    db.collection('plantoes').add({ matricula, nome, data, posto, timestamp })
-        .then((docRef) => {
-            // Add to local array immediately for instant UI update
-            plantoes.push({ id: docRef.id, matricula, nome, data, posto, timestamp });
-            atualizarTabelas();
+    db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
+        .then(() => {
             document.getElementById('plantaoMatricula').value = '';
             document.getElementById('plantaoNome').value = '';
             document.getElementById('plantaoData').value = '';
@@ -277,13 +273,8 @@ function cadastrarFolga() {
     const folgasNaData = folgas.filter(f => f.equipe === equipe && f.data === data);
     if (folgasNaData.length >= 8) { alert('Limite de 8 vagas atingido!'); return; }
 
-    const timestamp = Date.now();
-    db.collection('folgas').add({ matricula, nome, equipe, data, timestamp })
-        .then((docRef) => {
-            // Add to local array immediately for instant UI update
-            folgas.push({ id: docRef.id, matricula, nome, equipe, data, timestamp });
-            atualizarTabelas();
-            atualizarFolgas();
+    db.collection('folgas').add({ matricula, nome, equipe, data, timestamp: Date.now() })
+        .then(() => {
             document.getElementById('folgaMatricula').value = '';
             document.getElementById('folgaNome').value = '';
             document.getElementById('folgaEquipe').value = '';
