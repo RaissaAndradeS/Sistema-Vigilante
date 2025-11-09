@@ -231,8 +231,11 @@ function cadastrarPlantao() {
     const nome = document.getElementById('plantaoNome').value;
     const data = document.getElementById('plantaoData').value;
     const posto = document.getElementById('plantaoPosto').value;
-    
-    if (!matricula || !nome || !data || !posto) { alert('Preencha todos os campos!'); return; }
+
+    if (!matricula) { alert('Preencha a matrícula!'); return; }
+    if (!nome) { alert('Preencha o nome!'); return; }
+    if (!data) { alert('Selecione a data!'); return; }
+    if (!posto) { alert('Selecione um posto!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
     
