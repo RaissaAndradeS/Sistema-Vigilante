@@ -94,6 +94,8 @@ function updatePostos() {
     const alertFim = document.getElementById('alertFimSemana');
     const postoGroup = document.getElementById('postoGroup');
     const selectPosto = document.getElementById('plantaoPosto');
+
+    if (!alertFim || !postoGroup || !selectPosto) return;
     
     if (!data) { alertFim.style.display = 'none'; postoGroup.style.display = 'none'; return; }
     if (isFimDeSemana(data)) { alertFim.textContent = '⚠️ Plantões não permitidos em finais de semana'; alertFim.style.display = 'block'; postoGroup.style.display = 'none'; return; }
@@ -116,6 +118,7 @@ function updatePostos() {
 
 function atualizarResumoPlantoes() {
     const resumo = document.getElementById('resumoPlantoes');
+    if (!resumo) return; // Verifica se o elemento existe
     if (plantoes.length === 0) {
         resumo.innerHTML = '<p class="text-small" style="color: #6b7280;">Nenhum plantão cadastrado ainda.</p>';
         return;
@@ -238,35 +241,60 @@ function cadastrarPlantao() {
     const data = document.getElementById('plantaoData').value;
     const posto = document.getElementById('plantaoPosto').value;
     const btn = document.getElementById('btnPlantao');
+    if (!btn) { console.error('Botão btnPlantao não encontrado'); return; }
+
+    console.log('Tentando cadastrar plantão:', { matricula, nome, data, posto });
+    console.log('Config atual:', config);
+    console.log('Plantoes existentes:', plantoes.length);
 
     if (!matricula) { alert('Preencha a matrícula!'); return; }
     if (!nome) { alert('Preencha o nome!'); return; }
     if (!data) { alert('Selecione a data!'); return; }
     if (!posto) { alert('Selecione um posto!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
-    if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
+
+    const validacao = validarEscala(data);
+    console.log('Validação da escala:', validacao);
+    if (!validacao.valido) {
+        alert('Erro na validação da escala: ' + validacao.mensagem);
+        return;
+    }
+
+    const vagas = getVagasDisponiveis(data, posto);
+    console.log('Vagas disponíveis para', posto, 'na data', data, ':', vagas);
+    if (vagas <= 0) { alert('Sem vagas disponíveis!'); return; }
 
     // Check for duplicates
-    if (plantoes.some(p => p.matricula === matricula && p.data === data && p.posto === posto)) {
+    const duplicado = plantoes.some(p => p.matricula === matricula && p.data === data && p.posto === posto);
+    console.log('Verificação de duplicata:', duplicado);
+    if (duplicado) {
         alert('Plantão já cadastrado para esta matrícula, data e posto!');
         return;
     }
+
+    console.log('Validações passaram, tentando adicionar ao Firestore...');
 
     btn.disabled = true;
     btn.textContent = 'Cadastrando...';
 
     db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
         .then(() => {
+            console.log('Plantão cadastrado com sucesso no Firestore');
             document.getElementById('plantaoMatricula').value = '';
             document.getElementById('plantaoNome').value = '';
-            document.getElementById('plantaoData').value = '';
             document.getElementById('plantaoPosto').value = '';
             alert('✓ Plantão cadastrado com sucesso!');
             // Switch to visualizar tab to show the updated list immediately
             changeTab('visualizar', document.querySelector('.tab-button[data-tab="visualizar"]'));
         })
         .catch(e => {
-            alert('Erro: ' + e.message);
+            console.error('Erro ao cadastrar plantão:', e);
+            console.error('Detalhes do erro:', {
+                code: e.code,
+                message: e.message,
+                stack: e.stack
+            });
+            alert('Erro: ' + e.message + ' (Código: ' + (e.code || 'desconhecido') + ')');
         })
         .finally(() => {
             btn.disabled = false;
