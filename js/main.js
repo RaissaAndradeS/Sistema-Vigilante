@@ -193,15 +193,21 @@ function checkFimSemanaFolga() {
 function atualizarEscala() {
     const alertEscala = document.getElementById('alertEscala');
     const escalaConfigurada = document.getElementById('escalaConfigurada');
-    
+    const escalaInfoCadastro = document.getElementById('escalaInfoCadastro');
+    const escalaInfoCadastroText = document.getElementById('escalaInfoCadastroText');
+
     if (config.escalaConfig.tipo) {
         const meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-        document.getElementById('escalaInfo').textContent = `Dias ${config.escalaConfig.tipo} - ${meses[parseInt(config.escalaConfig.mes)]}/${config.escalaConfig.ano}`;
+        const infoText = `Dias ${config.escalaConfig.tipo} - ${meses[parseInt(config.escalaConfig.mes)]}/${config.escalaConfig.ano}`;
+        document.getElementById('escalaInfo').textContent = infoText;
+        escalaInfoCadastroText.textContent = infoText;
         alertEscala.style.display = 'none';
         escalaConfigurada.style.display = 'block';
+        escalaInfoCadastro.style.display = 'block';
     } else {
         alertEscala.style.display = 'block';
         escalaConfigurada.style.display = 'none';
+        escalaInfoCadastro.style.display = 'none';
     }
 }
 
@@ -238,7 +244,7 @@ function cadastrarPlantao() {
     if (!posto) { alert('Selecione um posto!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
-    
+
     db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
         .then(() => {
             document.getElementById('plantaoMatricula').value = '';
@@ -246,6 +252,8 @@ function cadastrarPlantao() {
             document.getElementById('plantaoData').value = '';
             document.getElementById('plantaoPosto').value = '';
             alert('✓ Plantão cadastrado com sucesso!');
+            // Switch to visualizar tab to show the updated list immediately
+            changeTab('visualizar', document.querySelector('.tab-button[data-tab="visualizar"]'));
         })
         .catch(e => alert('Erro: ' + e.message));
 }
@@ -356,8 +364,9 @@ function limparEscalaManual() {
     const datasAtuais = config.datasManual || [];
     if (datasAtuais.length === 0) { alert('Sem datas!'); return; }
     if (confirm('Limpar todas as datas manuais?')) {
-        db.collection('configuracoes').doc('escala').set({ 
-            datasManual: [] 
+        db.collection('configuracoes').doc('escala').set({
+            datasManual: [],
+            escalaConfig: { tipo: '', mes: '', ano: '' }
         }, { merge: true })
             .then(() => alert('✓ Limpo!'))
             .catch(e => alert('Erro: ' + e.message));
