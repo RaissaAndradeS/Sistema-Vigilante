@@ -263,7 +263,6 @@ function cadastrarPlantao() {
             document.getElementById('plantaoPosto').value = '';
             alert('✓ Plantão cadastrado com sucesso!');
             // Switch to visualizar tab to show the updated list immediately
-            changeTab('visualizar', document.querySelector('.tab-button[data-tab="visualizar"]'));
         })
         .catch(e => {
             alert('Erro: ' + e.message);
