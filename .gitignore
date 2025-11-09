@@ -1,0 +1,7 @@
+# Ignorar credenciais e configs sensíveis
+js/config.js
+
+# Ignorar backups e temporários
+*.log
+*.tmp
+node_modules/

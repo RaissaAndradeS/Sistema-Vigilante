@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão de Reforço - Vigilantes</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Sistema de Gestão de Reforço</h1>
+        <p>Escala 12x36 - Controle de Plantões e Folgas</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-button active" data-tab="cadastro">📅 Cadastrar Plantão</button>
+        <button class="tab-button" data-tab="folgas">👥 Solicitar Folga</button>
+        <button class="tab-button" data-tab="visualizar">📋 Visualizar</button>
+        <button class="tab-button" data-tab="admin">⚙️ Administração</button>
+        <button class="tab-button" data-tab="login">🔐 <span id="loginTabText">Login</span></button>
+    </div>
+
+    <div class="container">
+        <!-- CADASTRO PLANTÃO -->
+        <div id="cadastro" class="card active">
+            <h2>📅 Cadastrar Plantão de Reforço</h2>
+            
+            <div id="alertEscala" class="alert alert-warning">
+                <span>⚠️</span>
+                <div>
+                    <strong>Escala não configurada</strong>
+                    <p class="text-small">O administrador ainda não configurou a escala do mês.</p>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label>Matrícula (4 dígitos)</label>
+                    <input type="text" id="plantaoMatricula" maxlength="4" placeholder="Ex: 1234">
+                </div>
+                <div class="form-group">
+                    <label>Nome do Vigilante</label>
+                    <input type="text" id="plantaoNome" placeholder="Nome completo">
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label>Data do Reforço</label>
+                    <input type="date" id="plantaoData" onchange="updatePostos()">
+                    <p id="alertFimSemana" class="text-small" style="color: var(--danger); display: none; margin-top: 0.5rem;"></p>
+                </div>
+                <div class="form-group" id="postoGroup" style="display: none;">
+                    <label>Posto Disponível</label>
+                    <select id="plantaoPosto">
+                        <option value="">Selecione um posto</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="cadastrarPlantao()">Cadastrar Plantão</button>
+        </div>
+
+        <!-- FOLGAS -->
+        <div id="folgas" class="card">
+            <h2>👥 Solicitar Folga</h2>
+            
+            <div id="alertFolgas" class="alert alert-warning">
+                <span>⚠️</span>
+                <div>
+                    <strong>Folgas não habilitadas</strong>
+                    <p class="text-small">O administrador ainda não habilitou o cadastro de folgas.</p>
+                </div>
+            </div>
+
+            <div class="info-box info-box-dark">
+                <h4>📊 Vagas Disponíveis</h4>
+                <p>• Equipe Interna: <strong>8 vagas</strong> por data</p>
+                <p>• Equipe Externa: <strong>8 vagas</strong> por data</p>
+                <p style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
+                    <strong>Total: 16 vigilantes por fim de semana/feriado</strong>
+                </p>
+            </div>
+
+            <div class="info-box">
+                <h4>Folgas Solicitadas</h4>
+                <p>Interna: <span id="folgasInterna">0</span> folgas | Externa: <span id="folgasExterna">0</span> folgas</p>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label>Matrícula (4 dígitos)</label>
+                    <input type="text" id="folgaMatricula" maxlength="4" placeholder="Ex: 1234">
+                </div>
+                <div class="form-group">
+                    <label>Nome do Vigilante</label>
+                    <input type="text" id="folgaNome" placeholder="Nome completo">
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="form-group">
+                    <label>Equipe</label>
+                    <select id="folgaEquipe" onchange="checkFimSemanaFolga()">
+                        <option value="">Selecione a equipe</option>
+                        <option value="Interna">Interna</option>
+                        <option value="Externa">Externa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Data da Folga</label>
+                    <input type="date" id="folgaData" onchange="checkFimSemanaFolga()">
+                    <p id="alertFolgaData" class="text-small" style="color: var(--danger); display: none; margin-top: 0.5rem;"></p>
+                    <p id="vagasDataInfo" class="text-small" style="display: none; margin-top: 0.5rem; font-weight: 600;"></p>
+                </div>
+            </div>
+
+            <button class="btn btn-success" id="btnFolga" onclick="cadastrarFolga()" disabled>Solicitar Folga</button>
+        </div>
+
+        <!-- VISUALIZAR -->
+        <div id="visualizar" class="card">
+            <h2>📋 Visualizar Cadastros</h2>
+            
+            <div class="loading" id="loadingVisualizar">Carregando dados...</div>
+            
+            <div id="tabelasContainer" style="display: none;">
+                <div style="margin-bottom: 2.5rem;">
+                    <h3 style="color: var(--primary-500); margin-bottom: 1rem; font-size: 1.2rem;">
+                        🏢 Plantões Cadastrados <span class="badge badge-primary" id="totalPlantoes">0</span>
+                    </h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Matrícula</th>
+                                    <th>Nome</th>
+                                    <th>Data</th>
+                                    <th>Posto</th>
+                                    <th id="acoesPlantaoHeader" style="display: none;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaPlantoes">
+                                <tr><td colspan="5">Nenhum plantão cadastrado.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 style="color: var(--primary-500); margin-bottom: 1rem; font-size: 1.2rem;">
+                        👥 Folgas Solicitadas <span class="badge badge-primary" id="totalFolgas">0</span>
+                    </h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Matrícula</th>
+                                    <th>Nome</th>
+                                    <th>Equipe</th>
+                                    <th>Data</th>
+                                    <th id="acoesFolgaHeader" style="display: none;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaFolgas">
+                                <tr><td colspan="5">Nenhuma folga solicitada.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="adminNotice" class="alert alert-info" style="display: none; margin-top: 2rem;">
+                    <span>✓</span>
+                    <div>
+                        <strong>Modo Administrador Ativo</strong>
+                        <p class="text-small">Você pode remover cadastros clicando no botão de ação.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADMINISTRAÇÃO -->
+        <div id="admin" class="card">
+            <h2>⚙️ Painel de Administração</h2>
+            
+            <div id="adminRestricted" class="alert alert-error">
+                <span>🔐</span>
+                <div>
+                    <strong>Acesso Restrito</strong>
+                    <p class="text-small">Faça login na aba "Login" para acessar esta seção.</p>
+                </div>
+            </div>
+
+            <div id="adminPanel" style="display: none;" class="flex-col">
+                <div class="info-box">
+                    <h4>Configurar Escala do Mês</h4>
+                    <div class="grid">
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="tipoEscala">
+                                <option value="impar">Dias Ímpares</option>
+                                <option value="par">Dias Pares</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Mês</label>
+                            <select id="mesEscala">
+                                <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                                <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                                <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ano</label>
+                            <input type="number" id="anoEscala" value="2025">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="configurarEscala()">Enviar Escala</button>
+                    <div id="escalaConfigurada" class="alert alert-success" style="display: none; margin-top: 1rem;">
+                        <span>✓</span>
+                        <div>
+                            <strong>Escala configurada:</strong> <span id="escalaInfo"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h4>Controle de Folgas</h4>
+                    <button class="btn btn-warning" id="btnToggleFolgas" onclick="toggleFolgas()">Habilitar Folgas</button>
+                    <p class="text-small" style="margin-top: 0.75rem;">Status: <span id="statusFolgas">✗ Desabilitadas</span></p>
+                </div>
+
+                <div class="info-box">
+                    <h4>Gerenciar Feriados</h4>
+                    <div class="form-group">
+                        <label>Adicionar Feriado</label>
+                        <input type="date" id="dataFeriado">
+                    </div>
+                    <div class="flex">
+                        <button class="btn btn-primary" onclick="adicionarFeriado()">➕ Adicionar</button>
+                        <button class="btn btn-danger" onclick="limparFeriados()">🗑️ Limpar</button>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <p class="text-small"><strong>Feriados Cadastrados (<span id="totalFeriados">0</span>):</strong></p>
+                        <div id="feriadosContainer" style="margin-top: 0.75rem; max-height: 250px; overflow-y: auto;">
+                            <p class="text-small">Nenhum feriado cadastrado.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h4>Escala Manual (Personalizada)</h4>
+                    <div class="form-group">
+                        <label>Adicionar Data</label>
+                        <input type="date" id="dataManual">
+                    </div>
+                    <div class="flex">
+                        <button class="btn btn-primary" onclick="adicionarDataManual()">➕ Adicionar</button>
+                        <button class="btn btn-danger" onclick="limparEscalaManual()">🗑️ Limpar</button>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <p class="text-small"><strong>Datas Configuradas (<span id="totalDatasManual">0</span>):</strong></p>
+                        <div id="datasManualContainer" style="margin-top: 0.75rem; max-height: 250px; overflow-y: auto;">
+                            <p class="text-small">Nenhuma data adicionada.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h4>Gerenciar Dados</h4>
+                    <div class="flex">
+                        <button class="btn btn-success" onclick="exportarDados()">📥 Exportar Excel</button>
+                        <button class="btn btn-danger" onclick="limparDados()">🗑️ Limpar Tudo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOGIN -->
+        <div id="login" class="card">
+            <h2>🔐 Acesso Administrativo</h2>
+            
+            <div id="loginForm" style="max-width: 400px;">
+                <p class="text-small" style="margin-bottom: 1.5rem;">Faça login com sua senha de administrador.</p>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="adminPassword" placeholder="Digite sua senha">
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="fazerLogin()">Fazer Login</button>
+            </div>
+
+            <div id="adminLoggedIn" style="display: none;">
+                <div class="alert alert-success">
+                    <span>✓</span>
+                    <div>
+                        <strong>Você está logado como Administrador</strong>
+                    </div>
+                </div>
+                <div class="flex" style="margin-top: 1rem;">
+                    <button class="btn btn-primary" onclick="changeTab('admin', document.querySelectorAll('.tab-button')[3])">Ir para Administração</button>
+                    <button class="btn btn-danger" onclick="fazerLogout()">Fazer Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><strong>Sistema de Gestão de Reforço v2.0</strong></p>
+        <p id="adminFooter" style="font-size: 0.9rem; margin-top: 0.5rem; display: none;">🔐 Modo Administrador Ativo</p>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
