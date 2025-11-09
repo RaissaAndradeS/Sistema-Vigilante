@@ -535,4 +535,4 @@ window.limparDados = limparDados;
         document.getElementById('loadingVisualizar').style.display = 'none';
         document.getElementById('tabelasContainer').style.display = 'block';
     }, 500);
-;
+; 
