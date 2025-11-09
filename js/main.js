@@ -245,8 +245,12 @@ function cadastrarPlantao() {
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
 
-    db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
-        .then(() => {
+    const timestamp = Date.now();
+    db.collection('plantoes').add({ matricula, nome, data, posto, timestamp })
+        .then((docRef) => {
+            // Add to local array immediately for instant UI update
+            plantoes.push({ id: docRef.id, matricula, nome, data, posto, timestamp });
+            atualizarTabelas();
             document.getElementById('plantaoMatricula').value = '';
             document.getElementById('plantaoNome').value = '';
             document.getElementById('plantaoData').value = '';
@@ -260,21 +264,26 @@ function cadastrarPlantao() {
 
 function cadastrarFolga() {
     if (!config.folgasHabilitadas) { alert('Folgas não habilitadas!'); return; }
-    
+
     const matricula = document.getElementById('folgaMatricula').value;
     const nome = document.getElementById('folgaNome').value;
     const equipe = document.getElementById('folgaEquipe').value;
     const data = document.getElementById('folgaData').value;
-    
+
     if (!matricula || !nome || !equipe || !data) { alert('Preencha todos os campos!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (!isFimDeSemanaOuFeriado(data)) { alert('Apenas fins de semana ou feriados!'); return; }
-    
+
     const folgasNaData = folgas.filter(f => f.equipe === equipe && f.data === data);
     if (folgasNaData.length >= 8) { alert('Limite de 8 vagas atingido!'); return; }
-    
-    db.collection('folgas').add({ matricula, nome, equipe, data, timestamp: Date.now() })
-        .then(() => {
+
+    const timestamp = Date.now();
+    db.collection('folgas').add({ matricula, nome, equipe, data, timestamp })
+        .then((docRef) => {
+            // Add to local array immediately for instant UI update
+            folgas.push({ id: docRef.id, matricula, nome, equipe, data, timestamp });
+            atualizarTabelas();
+            atualizarFolgas();
             document.getElementById('folgaMatricula').value = '';
             document.getElementById('folgaNome').value = '';
             document.getElementById('folgaEquipe').value = '';
