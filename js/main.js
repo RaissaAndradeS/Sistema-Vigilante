@@ -237,6 +237,7 @@ function cadastrarPlantao() {
     const nome = document.getElementById('plantaoNome').value;
     const data = document.getElementById('plantaoData').value;
     const posto = document.getElementById('plantaoPosto').value;
+    const btn = document.getElementById('btnPlantao');
 
     if (!matricula) { alert('Preencha a matrícula!'); return; }
     if (!nome) { alert('Preencha o nome!'); return; }
@@ -244,6 +245,15 @@ function cadastrarPlantao() {
     if (!posto) { alert('Selecione um posto!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
+
+    // Check for duplicates
+    if (plantoes.some(p => p.matricula === matricula && p.data === data && p.posto === posto)) {
+        alert('Plantão já cadastrado para esta matrícula, data e posto!');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Cadastrando...';
 
     db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
         .then(() => {
@@ -255,7 +265,13 @@ function cadastrarPlantao() {
             // Switch to visualizar tab to show the updated list immediately
             changeTab('visualizar', document.querySelector('.tab-button[data-tab="visualizar"]'));
         })
-        .catch(e => alert('Erro: ' + e.message));
+        .catch(e => {
+            alert('Erro: ' + e.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Cadastrar Plantão';
+        });
 }
 
 function cadastrarFolga() {
@@ -265,13 +281,23 @@ function cadastrarFolga() {
     const nome = document.getElementById('folgaNome').value;
     const equipe = document.getElementById('folgaEquipe').value;
     const data = document.getElementById('folgaData').value;
+    const btn = document.getElementById('btnFolga');
 
     if (!matricula || !nome || !equipe || !data) { alert('Preencha todos os campos!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (!isFimDeSemanaOuFeriado(data)) { alert('Apenas fins de semana ou feriados!'); return; }
 
+    // Check for duplicates
+    if (folgas.some(f => f.matricula === matricula && f.equipe === equipe && f.data === data)) {
+        alert('Folga já cadastrada para esta matrícula, equipe e data!');
+        return;
+    }
+
     const folgasNaData = folgas.filter(f => f.equipe === equipe && f.data === data);
     if (folgasNaData.length >= 8) { alert('Limite de 8 vagas atingido!'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Cadastrando...';
 
     db.collection('folgas').add({ matricula, nome, equipe, data, timestamp: Date.now() })
         .then(() => {
@@ -281,7 +307,13 @@ function cadastrarFolga() {
             document.getElementById('folgaData').value = '';
             alert('✓ Folga cadastrada com sucesso!');
         })
-        .catch(e => alert('Erro: ' + e.message));
+        .catch(e => {
+            alert('Erro: ' + e.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Cadastrar Folga';
+        });
 }
 
 // LOGIN
