@@ -1,5 +1,5 @@
 # Ignorar credenciais e configs sensíveis
-js/config.js
+# js/config.js  # Removido para permitir deploy no GitHub Pages
 
 # Ignorar backups e temporários
 *.log
