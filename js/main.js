@@ -1,4 +1,9 @@
-firebase.initializeApp({
+// Verificar se semana está liberada
+function isSemanaLiberada(dataStr) {
+    return config.folgasSemanais && config.folgasSemanais.some(semana => {
+        return dataStr >= semana.inicio && dataStr <= semana.fim;
+    });
+}firebase.initializeApp({
     apiKey: "AIzaSyCjukYZ483MuTh77jRsO-PmzCRw_RNebYM",
     authDomain: "sistema-vigilantes.firebaseapp.com",
     projectId: "sistema-vigilantes",
@@ -12,11 +17,15 @@ const db = firebase.firestore();
 let isAdmin = false;
 let plantoes = [];
 let folgas = [];
+let vigilantes = [];
+let listenerCarregado = false;
 let config = {
     escalaConfig: { tipo: '', mes: '', ano: '' },
     datasManual: [],
     folgasHabilitadas: false,
-    feriados: []
+    feriados: [],
+    semanasLiberadas: [],
+    folgasSemanais: [] // Novo: array de semanas liberadas para folgas
 };
 
 const postosConfig = {
@@ -27,7 +36,7 @@ const postosConfig = {
     5: [{ nome: 'Garagem Privativa - Raio X', vagas: 1 }, { nome: 'Garagem Oficial - Cone', vagas: 1 }, { nome: 'Salão Negro - Elevador', vagas: 2 }, { nome: 'Dinarte Mariz', vagas: 1 }, { nome: 'Salão Negro - Raio X', vagas: 4 }, { nome: 'Guarita N3', vagas: 1 }, { nome: 'Intrajornada (GDER=D/E=CM3)', vagas: 1 }]
 };
 
-// UTILITIES
+// ===== UTILITIES =====
 function isFimDeSemana(dataStr) {
     const data = new Date(dataStr + 'T00:00:00');
     return data.getDay() === 0 || data.getDay() === 6;
@@ -44,6 +53,43 @@ function isFeriado(dataStr) {
 
 function isFimDeSemanaOuFeriado(dataStr) {
     return isFimDeSemana(dataStr) || isFeriado(dataStr);
+}
+
+// Obter semanas do mês para folgas
+function getSemanasDoMes(mes, ano) {
+    const semanas = [];
+    const primeiroDia = new Date(ano, mes - 1, 1);
+    const ultimoDia = new Date(ano, mes, 0);
+    
+    let inicioSemana = new Date(primeiroDia);
+    inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay());
+    
+    while (inicioSemana <= ultimoDia) {
+        const fimSemana = new Date(inicioSemana);
+        fimSemana.setDate(fimSemana.getDate() + 6);
+        
+        if (fimSemana >= primeiroDia) {
+            const dataInicio = inicioSemana.toISOString().split('T')[0];
+            const dataFim = fimSemana.toISOString().split('T')[0];
+            
+            semanas.push({
+                inicio: dataInicio,
+                fim: dataFim,
+                numero: semanas.length + 1
+            });
+        }
+        
+        inicioSemana.setDate(inicioSemana.getDate() + 7);
+    }
+    
+    return semanas;
+}
+
+// Verificar se semana está liberada
+function isSemanaLiberada(dataStr) {
+    return config.semanasLiberadas.some(semana => {
+        return dataStr >= semana.inicio && dataStr <= semana.fim;
+    });
 }
 
 function getPostosDisponiveis(dataStr) {
@@ -80,7 +126,7 @@ function validarEscala(dataStr) {
     return { valido: true, mensagem: '' };
 }
 
-// TABS
+// ===== TABS =====
 function changeTab(tabName, button) {
     document.querySelectorAll('.card').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -88,7 +134,7 @@ function changeTab(tabName, button) {
     if (button) button.classList.add('active');
 }
 
-// UI UPDATES
+// ===== UI UPDATES =====
 function updatePostos() {
     const data = document.getElementById('plantaoData').value;
     const alertFim = document.getElementById('alertFimSemana');
@@ -116,9 +162,40 @@ function updatePostos() {
     });
 }
 
+// Auto-preenchimento do nome
+async function preencherNomeAutomatico() {
+    const matricula = document.getElementById('folgaMatricula').value.trim();
+    const nomeInput = document.getElementById('folgaNome');
+    
+    if (matricula.length !== 4) {
+        nomeInput.value = '';
+        return;
+    }
+    
+    try {
+        const snapshot = await db.collection('vigilantes')
+            .where('matricula', '==', matricula)
+            .limit(1)
+            .get();
+        
+        if (snapshot.empty) {
+            nomeInput.value = '';
+            console.log('Matrícula não encontrada:', matricula);
+            return;
+        }
+        
+        const vigilante = snapshot.docs[0].data();
+        nomeInput.value = vigilante.nome || '';
+        console.log('Vigilante encontrado:', vigilante.nome);
+    } catch (error) {
+        console.error('Erro ao buscar vigilante:', error);
+        nomeInput.value = '';
+    }
+}
+
 function atualizarResumoPlantoes() {
     const resumo = document.getElementById('resumoPlantoes');
-    if (!resumo) return; // Verifica se o elemento existe
+    if (!resumo) return;
     if (plantoes.length === 0) {
         resumo.innerHTML = '<p class="text-small" style="color: #6b7280;">Nenhum plantão cadastrado ainda.</p>';
         return;
@@ -179,6 +256,16 @@ function checkFimSemanaFolga() {
     
     if (!data) { alertErro.style.display = 'none'; vagasInfo.style.display = 'none'; btnFolga.disabled = true; return; }
     if (!isFimDeSemanaOuFeriado(data)) { alertErro.textContent = '⚠️ Apenas fins de semana ou feriados'; alertErro.style.display = 'block'; vagasInfo.style.display = 'none'; btnFolga.disabled = true; return; }
+    
+    // Validar se a semana está liberada
+    if (!isSemanaLiberada(data)) {
+        alertErro.textContent = '⚠️ Esta semana ainda não foi liberada pelo administrador'; 
+        alertErro.style.display = 'block'; 
+        vagasInfo.style.display = 'none'; 
+        btnFolga.disabled = true; 
+        return; 
+    }
+    
     alertErro.style.display = 'none';
     
     if (equipe) {
@@ -203,14 +290,14 @@ function atualizarEscala() {
         const meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
         const infoText = `Dias ${config.escalaConfig.tipo} - ${meses[parseInt(config.escalaConfig.mes)]}/${config.escalaConfig.ano}`;
         document.getElementById('escalaInfo').textContent = infoText;
-        escalaInfoCadastroText.textContent = infoText;
+        if (escalaInfoCadastroText) escalaInfoCadastroText.textContent = infoText;
         alertEscala.style.display = 'none';
         escalaConfigurada.style.display = 'block';
-        escalaInfoCadastro.style.display = 'block';
+        if (escalaInfoCadastro) escalaInfoCadastro.style.display = 'block';
     } else {
         alertEscala.style.display = 'block';
         escalaConfigurada.style.display = 'none';
-        escalaInfoCadastro.style.display = 'none';
+        if (escalaInfoCadastro) escalaInfoCadastro.style.display = 'none';
     }
 }
 
@@ -234,68 +321,77 @@ function atualizarFolgasStatus() {
     }
 }
 
-// FORMS
+// Atualizar lista de semanas para admin - FOLGAS SEMANAIS
+function atualizarListaSemanas() {
+    const container = document.getElementById('semanasContainer');
+    if (!container) return;
+    
+    if (!config.escalaConfig.mes || !config.escalaConfig.ano) {
+        container.innerHTML = '<p class="text-small">Configure a escala primeiro!</p>';
+        return;
+    }
+    
+    const mes = parseInt(config.escalaConfig.mes);
+    const ano = parseInt(config.escalaConfig.ano);
+    const semanas = getSemanasDoMes(mes, ano);
+    const totalElement = document.getElementById('totalSemanas');
+    
+    if (totalElement) totalElement.textContent = semanas.length;
+    
+    if (semanas.length === 0) {
+        container.innerHTML = '<p class="text-small">Nenhuma semana disponível.</p>';
+        return;
+    }
+    
+    let html = '';
+    semanas.forEach((semana, idx) => {
+        const liberada = config.folgasSemanais && config.folgasSemanais.some(s => s.inicio === semana.inicio);
+        const statusClass = liberada ? 'background: #d1fae5; border-left-color: #10b981;' : 'background: #fee2e2; border-left-color: #ef4444;';
+        const statusText = liberada ? '✓ Liberada' : '✗ Bloqueada';
+        const botaoText = liberada ? 'Bloquear' : 'Liberar';
+        const botaoClass = liberada ? 'btn-danger' : 'btn-success';
+        const folgasCount = folgas.filter(f => f.data >= semana.inicio && f.data <= semana.fim);
+        const internaCount = folgasCount.filter(f => f.equipe === 'Interna').length;
+        const externaCount = folgasCount.filter(f => f.equipe === 'Externa').length;
+        
+        html += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; ${statusClass}; border-radius: 6px; margin-bottom: 0.75rem; border-left: 3px solid;">
+            <div>
+                <span class="text-small"><strong>Semana ${semana.numero}</strong></span><br>
+                <span class="text-small">${formatarData(semana.inicio)} a ${formatarData(semana.fim)}</span>
+                <br><span class="text-small" style="margin-top: 0.25rem; display: block; font-weight: 600;">${statusText}</span>
+                <span class="text-small" style="margin-top: 0.25rem; display: block; color: #666;">Folgas: Interna ${internaCount}/8 | Externa ${externaCount}/8</span>
+            </div>
+            <button class="btn ${botaoClass} btn-small" onclick="toggleFolgaSemanal('${semana.inicio}', '${semana.fim}', ${liberada})">${botaoText}</button>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+// ===== FORMS =====
 function cadastrarPlantao() {
     const matricula = document.getElementById('plantaoMatricula').value;
     const nome = document.getElementById('plantaoNome').value;
     const data = document.getElementById('plantaoData').value;
     const posto = document.getElementById('plantaoPosto').value;
     const btn = document.getElementById('btnPlantao');
-    if (!btn) { console.error('Botão btnPlantao não encontrado'); return; }
 
-    console.log('Tentando cadastrar plantão:', { matricula, nome, data, posto });
-    console.log('Config atual:', config);
-    console.log('Plantoes existentes:', plantoes.length);
-
-    if (!matricula) { alert('Preencha a matrícula!'); return; }
-    if (!nome) { alert('Preencha o nome!'); return; }
-    if (!data) { alert('Selecione a data!'); return; }
-    if (!posto) { alert('Selecione um posto!'); return; }
+    if (!matricula || !nome || !data || !posto) { alert('Preencha todos os campos!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
-
-    const validacao = validarEscala(data);
-    console.log('Validação da escala:', validacao);
-    if (!validacao.valido) {
-        alert('Erro na validação da escala: ' + validacao.mensagem);
-        return;
-    }
-
-    const vagas = getVagasDisponiveis(data, posto);
-    console.log('Vagas disponíveis para', posto, 'na data', data, ':', vagas);
-    if (vagas <= 0) { alert('Sem vagas disponíveis!'); return; }
-
-    // Check for duplicates
-    const duplicado = plantoes.some(p => p.matricula === matricula && p.data === data && p.posto === posto);
-    console.log('Verificação de duplicata:', duplicado);
-    if (duplicado) {
-        alert('Plantão já cadastrado para esta matrícula, data e posto!');
-        return;
-    }
-
-    console.log('Validações passaram, tentando adicionar ao Firestore...');
-
+    if (getVagasDisponiveis(data, posto) <= 0) { alert('Sem vagas disponíveis!'); return; }
+    
     btn.disabled = true;
     btn.textContent = 'Cadastrando...';
 
     db.collection('plantoes').add({ matricula, nome, data, posto, timestamp: Date.now() })
         .then(() => {
-            console.log('Plantão cadastrado com sucesso no Firestore');
             document.getElementById('plantaoMatricula').value = '';
             document.getElementById('plantaoNome').value = '';
+            document.getElementById('plantaoData').value = '';
             document.getElementById('plantaoPosto').value = '';
             alert('✓ Plantão cadastrado com sucesso!');
-            // Switch to visualizar tab to show the updated list immediately
             changeTab('visualizar', document.querySelector('.tab-button[data-tab="visualizar"]'));
         })
-        .catch(e => {
-            console.error('Erro ao cadastrar plantão:', e);
-            console.error('Detalhes do erro:', {
-                code: e.code,
-                message: e.message,
-                stack: e.stack
-            });
-            alert('Erro: ' + e.message + ' (Código: ' + (e.code || 'desconhecido') + ')');
-        })
+        .catch(e => alert('Erro: ' + e.message))
         .finally(() => {
             btn.disabled = false;
             btn.textContent = 'Cadastrar Plantão';
@@ -314,8 +410,8 @@ function cadastrarFolga() {
     if (!matricula || !nome || !equipe || !data) { alert('Preencha todos os campos!'); return; }
     if (matricula.length !== 4) { alert('Matrícula deve ter 4 dígitos!'); return; }
     if (!isFimDeSemanaOuFeriado(data)) { alert('Apenas fins de semana ou feriados!'); return; }
+    if (!isSemanaLiberada(data)) { alert('Esta semana não está liberada!'); return; }
 
-    // Check for duplicates
     if (folgas.some(f => f.matricula === matricula && f.equipe === equipe && f.data === data)) {
         alert('Folga já cadastrada para esta matrícula, equipe e data!');
         return;
@@ -335,16 +431,14 @@ function cadastrarFolga() {
             document.getElementById('folgaData').value = '';
             alert('✓ Folga cadastrada com sucesso!');
         })
-        .catch(e => {
-            alert('Erro: ' + e.message);
-        })
+        .catch(e => alert('Erro: ' + e.message))
         .finally(() => {
             btn.disabled = false;
             btn.textContent = 'Cadastrar Folga';
         });
 }
 
-// LOGIN
+// ===== LOGIN =====
 function fazerLogin() {
     const senha = document.getElementById('adminPassword').value;
     if (senha === ADMIN_PASSWORD) {
@@ -378,7 +472,7 @@ function fazerLogout() {
     alert('✓ Logout realizado!');
 }
 
-// ADMIN
+// ===== ADMIN =====
 function configurarEscala() {
     const tipo = document.getElementById('tipoEscala').value;
     const mes = document.getElementById('mesEscala').value;
@@ -393,6 +487,27 @@ function toggleFolgas() {
         .then(() => { alert(config.folgasHabilitadas ? '✓ Folgas desabilitadas!' : '✓ Folgas habilitadas!'); })
         .catch(e => alert('Erro: ' + e.message));
 }
+
+function toggleSemana(dataInicio, dataFim, liberada) {
+    if (liberada) {
+        if (confirm(`Bloquear a semana de ${formatarData(dataInicio)} a ${formatarData(dataFim)}?`)) {
+            const novasSemanasLiberadas = config.folgasSemanais.filter(s => s.inicio !== dataInicio);
+            db.collection('configuracoes').doc('escala').set({ folgasSemanais: novasSemanasLiberadas }, { merge: true })
+                .then(() => alert('✓ Semana bloqueada!'))
+                .catch(e => alert('Erro: ' + e.message));
+        }
+    } else {
+        if (confirm(`Liberar a semana de ${formatarData(dataInicio)} a ${formatarData(dataFim)}?`)) {
+            const novasSemanasLiberadas = [...config.folgasSemanais, { inicio: dataInicio, fim: dataFim }];
+            db.collection('configuracoes').doc('escala').set({ folgasSemanais: novasSemanasLiberadas }, { merge: true })
+                .then(() => alert('✓ Semana liberada!'))
+                .catch(e => alert('Erro: ' + e.message));
+        }
+    }
+}
+
+// Alias para compatibilidade
+const toggleFolgaSemanal = toggleSemana;
 
 function adicionarDataManual() {
     const data = document.getElementById('dataManual').value;
@@ -558,30 +673,64 @@ function limparDados() {
     }
 }
 
-// LISTENERS
+// ===== CONTROLE DE LOADING =====
+function esconderLoading() {
+    const loadingEl = document.getElementById('loadingVisualizar');
+    const containerEl = document.getElementById('tabelasContainer');
+    
+    if (listenerCarregado && loadingEl && containerEl) {
+        loadingEl.style.display = 'none';
+        containerEl.style.display = 'block';
+    }
+}
+
+// ===== LISTENERS =====
 db.collection('plantoes').onSnapshot(snapshot => {
     plantoes = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.timestamp - b.timestamp);
     atualizarResumoPlantoes();
     atualizarTabelas();
+    listenerCarregado = true;
+    esconderLoading();
 });
 
 db.collection('folgas').onSnapshot(snapshot => {
     folgas = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.timestamp - b.timestamp);
     atualizarFolgas();
     atualizarTabelas();
+    listenerCarregado = true;
+    esconderLoading();
 });
 
 db.collection('configuracoes').doc('escala').onSnapshot(doc => {
     if (doc.exists) {
         config = doc.data();
+        // Garantir que folgasSemanais existe
+        if (!config.folgasSemanais) config.folgasSemanais = [];
         atualizarEscala();
         atualizarFolgasStatus();
         atualizarListaFeriados();
+        atualizarListaDatasManual();
+        atualizarListaSemanas();
     }
+    listenerCarregado = true;
+    esconderLoading();
 });
 
-// Tornar funções globais
+db.collection('vigilantes').onSnapshot(snapshot => {
+    vigilantes = snapshot.docs.map(d => d.data());
+});
+
+// Fallback: Se os listeners demorarem muito, esconde mesmo assim depois de 3 segundos
+setTimeout(() => {
+    const loadingEl = document.getElementById('loadingVisualizar');
+    if (loadingEl && loadingEl.style.display !== 'none') {
+        esconderLoading();
+    }
+}, 3000);
+
+// ===== FUNÇÕES GLOBAIS =====
 window.updatePostos = updatePostos;
+window.preencherNomeAutomatico = preencherNomeAutomatico;
 window.checkFimSemanaFolga = checkFimSemanaFolga;
 window.changeTab = changeTab;
 window.cadastrarPlantao = cadastrarPlantao;
@@ -590,6 +739,7 @@ window.fazerLogin = fazerLogin;
 window.fazerLogout = fazerLogout;
 window.configurarEscala = configurarEscala;
 window.toggleFolgas = toggleFolgas;
+window.toggleSemana = toggleSemana;
 window.adicionarFeriado = adicionarFeriado;
 window.removerFeriado = removerFeriado;
 window.limparFeriados = limparFeriados;
@@ -600,18 +750,22 @@ window.removerPlantao = removerPlantao;
 window.removerFolga = removerFolga;
 window.exportarDados = exportarDados;
 window.limparDados = limparDados;
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.addEventListener('click', function() {
-            changeTab(this.getAttribute('data-tab'), this);
-        });
+
+// ===== EVENT LISTENERS =====
+document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.addEventListener('click', function() {
+        changeTab(this.getAttribute('data-tab'), this);
     });
-    
-    document.getElementById('adminPassword').addEventListener('keypress', e => {
+});
+
+const adminPasswordEl = document.getElementById('adminPassword');
+if (adminPasswordEl) {
+    adminPasswordEl.addEventListener('keypress', e => {
         if (e.key === 'Enter') fazerLogin();
     });
-    
-    setTimeout(() => {
-        document.getElementById('loadingVisualizar').style.display = 'none';
-        document.getElementById('tabelasContainer').style.display = 'block';
-    }, 500);
-; 
+}
+
+const folgaMatriculaEl = document.getElementById('folgaMatricula');
+if (folgaMatriculaEl) {
+    folgaMatriculaEl.addEventListener('change', preencherNomeAutomatico);
+}

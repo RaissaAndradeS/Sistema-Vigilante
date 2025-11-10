@@ -82,8 +82,8 @@
 
             <div class="info-box info-box-dark">
                 <h4>📊 Vagas Disponíveis</h4>
-                <p>• Equipe Interna: <strong>8 vagas</strong> por data</p>
-                <p>• Equipe Externa: <strong>8 vagas</strong> por data</p>
+                <p>• Equipe Interna: <strong>8 vagas</strong> por semana</p>
+                <p>• Equipe Externa: <strong>8 vagas</strong> por semana</p>
                 <p style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(0,0,0,0.1);">
                     <strong>Total: 16 vigilantes por fim de semana/feriado</strong>
                 </p>
@@ -97,7 +97,7 @@
             <div class="grid">
                 <div class="form-group">
                     <label>Matrícula (4 dígitos)</label>
-                    <input type="text" id="folgaMatricula" maxlength="4" placeholder="Ex: 1234">
+                    <input type="text" id="folgaMatricula" maxlength="4" placeholder="Ex: 1234" onchange="preencherNomeAutomatico()">
                 </div>
                 <div class="form-group">
                     <label>Nome do Vigilante</label>
@@ -235,6 +235,17 @@
                 </div>
 
                 <div class="info-box">
+                    <h4>📅 Liberar Folgas por Semana</h4>
+                    <p class="text-small" style="margin-bottom: 1rem; color: #666;">Libere as semanas do mês para que os vigilantes possam solicitar folgas. Cada semana pode ter até <strong>8 folgas por equipe</strong>.</p>
+                    <div style="margin-top: 1rem;">
+                        <p class="text-small"><strong>Semanas do Mês (<span id="totalSemanas">0</span>):</strong></p>
+                        <div id="semanasContainer" style="margin-top: 0.75rem; max-height: 500px; overflow-y: auto;">
+                            <p class="text-small">Configure a escala primeiro!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
                     <h4>Controle de Folgas</h4>
                     <button class="btn btn-warning" id="btnToggleFolgas" onclick="toggleFolgas()">Habilitar Folgas</button>
                     <p class="text-small" style="margin-top: 0.75rem;">Status: <span id="statusFolgas">✗ Desabilitadas</span></p>
@@ -315,7 +326,7 @@
     </div>
 
     <div class="footer">
-        <p><strong>Sistema de Gestão de Reforço v2.0</strong></p>
+        <p><strong>Sistema de Gestão de Reforço v2.1</strong></p>
         <p id="adminFooter" style="font-size: 0.9rem; margin-top: 0.5rem; display: none;">🔐 Modo Administrador Ativo</p>
     </div>
 
