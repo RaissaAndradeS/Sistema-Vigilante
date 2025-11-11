@@ -442,13 +442,24 @@ function cadastrarFolga() {
 function fazerLogin() {
     const senha = document.getElementById('adminPassword').value;
     
-    // Se ADMIN_PASSWORD não foi definido, usa um valor padrão ou avisa
-    if (typeof ADMIN_PASSWORD === 'undefined') {
-        alert('❌ Erro: ADMIN_PASSWORD não configurado!\nVerifique se js/config.js existe.');
+    // Tenta pegar a senha de diferentes fontes
+    let senhaCorreta = null;
+    
+    // 1. Verifica se ADMIN_PASSWORD foi definido (ambiente local ou build)
+    if (typeof ADMIN_PASSWORD !== 'undefined') {
+        senhaCorreta = ADMIN_PASSWORD;
+    } 
+    // 2. Verifica localStorage (como fallback temporário)
+    else if (localStorage.getItem('adminPasswordSet')) {
+        senhaCorreta = localStorage.getItem('adminPasswordSet');
+    }
+    // 3. Se nenhum estiver disponível, mostra erro
+    else {
+        alert('❌ Erro: Senha de admin não configurada!\n\nLocalamente: crie js/config.js com:\nconst ADMIN_PASSWORD = "sua-senha";\n\nOnline: Fale com o administrador do sistema.');
         return;
     }
     
-    if (senha === ADMIN_PASSWORD) {
+    if (senha === senhaCorreta) {
         isAdmin = true;
         localStorage.setItem('adminLogado', 'true');
         document.getElementById('loginForm').style.display = 'none';

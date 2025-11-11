@@ -1,0 +1,27 @@
+name: Deploy com Config Seguro
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Criar config.js com senha segura
+      run: |
+        mkdir -p js
+        cat > js/config.js << 'EOF'
+        const ADMIN_PASSWORD = '${{ secrets.ADMIN_PASSWORD }}';
+        EOF
+    
+    - name: Deploy para GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./
