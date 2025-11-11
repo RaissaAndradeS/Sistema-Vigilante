@@ -1,7 +1,34 @@
-# Ignorar credenciais e configs sensíveis
-# js/config.js  # Removido para permitir deploy no GitHub Pages
 
-# Ignorar backups e temporários
-*.log
-*.tmp
+js/config.js
+config.js
+.env
+.env.local
+.env.*.local
+
+# IDE e Sistema
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Node (se usar)
 node_modules/
+package-lock.json
+yarn.lock
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Build
+dist/
+build/
+.next/
+
+# Temporários
+*.tmp
+*.bak
+~*
